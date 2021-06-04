@@ -6,6 +6,7 @@ const main = async () => {
   await sequelize.sync({ alter: true });
 
   const app = express();
+  app.use(express.json());
 
   app.listen(5000, () => {
     console.log("Listening at http://localhost:5000");

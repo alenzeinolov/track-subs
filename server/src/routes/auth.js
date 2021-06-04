@@ -62,11 +62,11 @@ router.post(
     const error = {
       message: "Incorrect username or password.",
     };
-    const user = await User.findOne({ where: { username } });
+    const user = await User.findOne({ where: { username: req.body.username } });
     if (!user) {
       return res.status(400).json(error);
     }
-    const checkPassword = await argon2.verify(user.password, password);
+    const checkPassword = await argon2.verify(user.password, req.body.password);
     if (!checkPassword) {
       return res.status(400).json(error);
     }
@@ -78,6 +78,65 @@ router.post(
   }
 );
 
-router.post("/register", (req, res) => {});
+router.post(
+  "/register",
+  checkSchema({
+    username: {
+      in: ["body"],
+      isAlphanumeric: true,
+      isLength: {
+        options: {
+          min: 4,
+        },
+      },
+      trim: true,
+      escape: true,
+    },
+    firstName: {
+      in: ["body"],
+      notEmpty: true,
+      trim: true,
+      escape: true,
+    },
+    lastName: {
+      in: ["body"],
+      notEmpty: true,
+      trim: true,
+      escape: true,
+    },
+    password: {
+      in: ["body"],
+      isLength: {
+        options: {
+          min: 8,
+        },
+      },
+      trim: true,
+      escape: true,
+    },
+  }),
+  (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const checkUser = await User.findOne({
+      where: { username: req.body.username },
+    });
+    if (checkUser) {
+      return res.status(400).json("Username already taken.");
+    }
+
+    const user = User.build();
+    user.password = await argon2.hash(req.body.password);
+    await user.save();
+
+    res.status(200).json({
+      ...user,
+      token: createToken(user),
+    });
+  }
+);
 
 export default router;
